@@ -1,0 +1,605 @@
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>リバーシ</title>
+</head>
+<body>
+  <canvas id="gamefield0" width="640" height="640" style="position: absolute; left:0px; top:0px;"></canvas>
+  <div id="panel"  style="position: absolute; left:640px; top:0px;"></div><br>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js"></script>
+  <script type="text/javascript">
+    var socketio = io.connect('http://localhost:8080');
+    var myName = "";
+    var once = true;
+    var fieldNumber = 0;
+    var nameArray = [];
+    var colorArray = [
+        'rgb(255,00,00)',
+        'rgb(00,255,00)',
+        'rgb(00,00,255)',
+        'rgb(255,255,255)',
+        'rgb(00,00,00)',
+        'rgb(255,255,00)',
+        'rgb(255,00,255)',
+        'rgb(00,255,255)',
+        'rgb(127,127,127)',
+        'rgb(00,127,127)',
+        'rgb(127,00,127)',
+        'rgb(127,127,00)',
+        
+    ];
+    var FIELD_SIZE = 640;
+    var CELL_SIZE = 79;
+    var CELL_HALF_SIZE = 34;
+    var mouseX = 0;
+    var mouseY = 0;
+    var ctx = [];
+    var PLAYER_TURN = 0;
+    var turn = PLAYER_TURN;
+    var turn_server = PLAYER_TURN;
+    var count = 0;
+    var startGameFlag = false;
+    var tableArray = [];
+    var players = [];
+
+    var passFlag = true;
+
+    /////////////////////////////////
+    // 最初に自分の名前(番号)を受け取る //
+    /////////////////////////////////
+    socketio.on("getName", function(data) {
+      nameArray.push(data);
+
+      if (once) {
+        once = false;
+        tableArray = data.value.room;
+
+//        tableArray = data.value.fieldNumberArray;
+
+
+        let i = 0;
+        for (const table of tableArray) {
+          if (table.state == 1) {
+            ++i;
+          }
+        }
+        if (i > 0) {
+          const span = document.createElement("span");
+          span.style.fontSize = 64 + "px";
+          span.innerText = "既にあるテーブルに参加する";
+          panel.appendChild(span);
+        }
+        i = 0;
+        for (const table of tableArray) {
+          console.log("tabel:" + table);
+          if (table.state == 1) {
+            const joinButton = document.createElement("button");
+            joinButton.style.fontSize = 64 + "px";
+            joinButton.innerText = "テーブル" + i;
+            joinButton.onclick = joinArray[i];
+            panel.appendChild(joinButton);
+          }
+          ++i;
+        }
+
+        myName=data.value.name;
+        playingGame(myName);
+        watchingGame(myName);
+      }
+    });
+
+    /////////////////////////////
+    // 現在のテーブル番号の受け取り //
+    /////////////////////////////
+    socketio.on("currentTable", function(data) {
+      fieldNumber = data;
+    });
+
+    var joinNumber = 1;
+
+    //////////////////////////
+    // テーブルに参加の受け取り //
+    //////////////////////////
+    socketio.on("join", function(data) {
+      joinNumber = data.number;
+
+      if (joinNumber == 2) {
+        const button = document.createElement("button");
+        button.onclick = startGame;
+        button.innerText = "ゲーム開始";
+        button.style.fontSize = 32 + "px";
+        panel.appendChild(button);
+        const wait = document.createElement("span");
+        wait.style.fontSize = 32 + "px";
+        wait.innerText = "更に参加者を待ちますか？";
+        panel.appendChild(wait);
+      }
+      const span = document.createElement("span");
+      span.style.fontSize = 32 + "px";
+      span.innerText = "プレイヤー数：" + joinNumber + "人";
+      panel.appendChild(span);
+
+
+    });
+
+    //////////////////////////
+    // ゲームスタートの受け取り //
+    //////////////////////////    
+    socketio.on("startGame", function(data){
+      console.log("startGame:data"+ data);
+      console.log("startGame:fieldNumber"+ fieldNumber);
+      if (data.data == fieldNumber) {
+        players = data.players;
+        startGameFlag = true;
+        panel.innerHTML = "";
+        const span = document.createElement("span");
+        span.style.fontSize = 32 + "px";
+        span.innerText = "ゲーム開始！";
+        panel.appendChild(span);
+        for (const p of players) {
+          const playerDiv = document.createElement("div");
+          playerDiv.style.fontSize = 32 + "px";
+          playerDiv.innerHTML = "<span style='color:" + colorArray[p] + "'>プレイヤー" + p + "</span>点数：";
+          panel.appendChild(playerDiv);
+        }
+
+      }
+    });
+    /////////////////////////////////
+    // 誰かがコマを置いた処理の受け取り //
+    /////////////////////////////////
+    socketio.on("put", function (data) {
+      turn_server = data.value.turn;
+
+      if (!(data.value.y == -1 && data.value.x == -1)) {
+
+      for (var y = 0; y < 8; ++y) {
+      for (var x = 0; x < 8; ++x) {
+        if (data.value.field[y][x] != -1) {
+          console.log("field" + data.value.field[y][x]);
+          for (var v = 0; v < 8; ++v) {
+            if (v == data.value.field[y][x]) {
+              ctx[0].fillStyle = colorArray[v ];
+              field[y][x] = v;
+            }
+          }
+          ctx[0].beginPath();
+          ctx[0].arc((x+1) * 79 - 36, (y+1) * 79 - 36,CELL_HALF_SIZE,0,Math.PI*2,true);
+          ctx[0].fill();
+        }
+      }
+      }
+
+      let childNum = 0;
+      for (const p of players) {
+        let point = 0;
+        for (let x = 0; x < 8; ++x) {
+          for (let y = 0; y < 8; ++y) {
+              if (field[y][x] == p) {
+                  point += 1;
+              }
+          }
+        }
+        panel.children[childNum + 1].innerHTML = "<span style='color:" + colorArray[p] + "'>プレイヤー" + p + "</span>点数：" + point;
+        if ( p == turn_server) {panel.children[childNum + 1].innerHTML += " <- 順番です";}
+        ++childNum;
+      }
+
+
+
+      turn += 1;
+      turn = turn % players.length;
+      passFlag = true;
+      const fieldT = [];
+      for (let y = 0; y < 8; ++y) {
+          fieldT[y] = [];
+          for (let x = 0; x < 8; ++x) {
+              fieldT[y].push(field[y][x]);
+          }
+      }
+
+      let beforePoint = 0;//置く前のコマの数を計算
+      for (let xx = 0; xx < 8; ++xx) {
+          for (let yy = 0; yy < 8; ++yy) {
+              if (field[yy][xx] == turn) {
+                  beforePoint += 1;
+              }
+          }
+      }
+
+      for (let x = 0; x < 8; ++x) {
+      for (let y = 0; y < 8; ++y) {
+
+        if (fieldT[y][x] == -1) {
+
+        
+      fieldT[y][x] = turn;
+
+      ctx.fillStyle = colorArray[turn];//コマの色
+
+      for (let i = 0; i < 8; ++i) {
+          for (let xx = x, yy = y; xx != CONST_X[i] && yy != CONST_Y[i]; xx += ADD_X[i], yy += ADD_Y[i]) {
+              if (fieldT[yy][xx] == turn) {
+                  let breakFlag = false;
+                  for (var xxx = x, yyy = y; (xxx != xx || ADD_X[i] == 0) && (yyy != yy || ADD_Y[i] == 0); xxx += ADD_X[i], yyy += ADD_Y[i]) {
+                      if (fieldT[yyy][xxx] == -1) {//コマを置いてないマスがある場合、ループを抜ける
+                          breakFlag = true;
+                          break;
+                      }
+                  }
+                  if (breakFlag) {
+                      break;
+                  }
+
+                  for (var xxx = x, yyy = y; (xxx != xx || ADD_X[i] == 0) && (yyy != yy || ADD_Y[i] == 0); xxx += ADD_X[i], yyy += ADD_Y[i]) {
+                      fieldT[yyy][xxx] = turn;
+                      if (fieldT[yyy + ADD_Y[i]][xxx + ADD_X[i]] == turn) {//同じ色のコマが途中にあった場合、ループを抜ける
+                          break;
+                      }
+                  }
+              }
+          }
+      }
+
+      let afterPoint = 0;//コマを置いた後の
+      for (let xx = 0; xx < 8; ++xx) {
+          for (let yy = 0; yy < 8; ++yy) {
+              if (fieldT[yy][xx] == turn) {
+                  afterPoint += 1;
+              }
+          }
+      }
+
+
+      if (beforePoint > 0 && beforePoint + 1 == afterPoint && count >= 2) {
+          fieldT[y][x] = -1;
+      } else {
+        passFlag = false;
+        break;
+      }
+
+        }
+      }
+      if (passFlag == false) break;
+      }
+
+      
+      if (passFlag == true) {
+//        turn_server -= 1;
+        console.log("##### pass #####");
+        var array = {
+          'x': -1,
+          'y': -1,
+          'turn': turn_server,//turn,
+          'myName': myName,
+          'fieldNumber': fieldNumber
+        };
+        console.log(array);
+
+        socketio.emit("put",{value: array});
+
+      }
+
+      } else {
+        let childNum = 0;
+        for (const p of players) {
+          let point = 0;
+          for (let x = 0; x < 8; ++x) {
+            for (let y = 0; y < 8; ++y) {
+                if (field[y][x] == p) {
+                    point += 1;
+                }
+            }
+          }
+          panel.children[childNum + 1].innerHTML = "<span style='color:" + colorArray[p] + "'>プレイヤー" + p + "</span>点数：" + point;
+          if ( p != turn_server) {panel.children[childNum + 1].innerHTML += " <- パスです";}
+          else {panel.children[childNum + 1].innerHTML += " <- 順番です";}
+          ++childNum;
+        }
+
+      }
+    });
+
+
+    function playingGame(name) {
+      socketio.emit("playingGame", name);
+    }
+    function watchingGame(name) {
+      socketio.emit("watchingGame", name);
+    }
+
+
+    const field = [];
+    const CONST_X = [ 8, -1,  8, -1,  8, -1,  8, -1];
+    const CONST_Y = [ 8,  8, -1, -1,  8, -1,  8, -1];
+    const ADD_X   = [ 1, -1,  1, -1,  1, -1,  0,  0];
+    const ADD_Y   = [ 1,  1, -1, -1,  0,  0,  1, -1];
+
+    //////////////////
+    // コマを置く処理 //
+    //////////////////
+    document.onmousedown = function (e){
+      if(!e) e = window.event;
+      
+      turn = myName;// % 12;
+
+      // console.log(joinNumber);
+      console.log(turn_server + "::" + turn + "::" + players[turn_server % players.length]);
+      // 順番管理機能を作らないといけない。このif文は消す事になる。
+      if (count > 0 && players[turn_server % players.length] != turn) {
+        return;
+      }
+      turn = turn_server;
+
+      if (!startGameFlag) {
+        return;
+      }
+      if (!( e.clientX <= FIELD_SIZE && e.clientY <= FIELD_SIZE)) {
+        return;
+      }
+
+      const x0 = e.clientX - e.clientX % CELL_SIZE + 40;
+      const y0 = e.clientY - e.clientY % CELL_SIZE + 40;
+      const x = (x0-40)/CELL_SIZE;
+      const y = (y0-40)/CELL_SIZE;
+      if (field[y][x] != -1) {//既に置かれていた場合は置けないようにする
+          return;
+      }
+
+
+      let firstFlag = true;
+      for (let fx = 0; fx < 8; ++fx) {
+        for (let fy = 0; fy < 8; ++fy) {
+          if(field[fy][fx] != -1) {
+            firstFlag = false;
+          }
+        }
+      }
+      //どこにも隣あってない場合
+      if (
+        ( (x < 7 && field[y][x + 1] != -1) ) ||
+        ( (x > 0 && field[y][x - 1] != -1) ) ||
+        ( (y < 7 && field[y + 1][x] != -1) ) ||
+        ( (y > 0 && field[y - 1][x] != -1) ) ||
+        ( (x < 7 && y < 7 && field[y + 1][x + 1] != -1) ) ||
+        ( (x > 0 && y > 0 && field[y - 1][x - 1] != -1) ) ||
+        ( (x < 7 && y > 0 && field[y - 1][x + 1] != -1) ) ||
+        ( (x > 0 && y < 7 && field[y + 1][x - 1] != -1) )
+
+        // ((x == 7) || (x < 7 && field[y][x + 1] == -1) ) &&
+        // ((x == 0) || (x > 0 && field[y][x - 1] == -1) ) &&
+        // ((y == 7) || (y < 7 && field[y + 1][x] == -1) ) &&
+        // ((y == 0) || (y > 0 && field[y - 1][x] == -1) ) &&
+        // ((x == 7 && y == 7) || (x < 7 && y < 7 && field[y + 1][x + 1] == -1) ) &&
+        // ((x == 0 && y == 0) || (x > 0 && y > 0 && field[y - 1][x - 1] == -1) ) &&
+        // ((x == 7 && y == 0) || (x < 7 && y > 0 && field[y - 1][x + 1] == -1) ) &&
+        // ((x == 0 && y == 7) || (x > 0 && y < 7 && field[y + 1][x - 1] == -1) )
+      ) {
+      } else {
+        if (firstFlag == false) {
+          return;
+        }
+      }
+
+      let beforePoint = 0;//置く前のコマの数を計算
+      for (let x = 0; x < 8; ++x) {
+          for (let y = 0; y < 8; ++y) {
+              if (field[y][x] == turn) {
+                  beforePoint += 1;
+              }
+          }
+      }
+      field[y][x] = turn;
+
+      ctx.fillStyle = colorArray[turn];//コマの色
+
+      for (let i = 0; i < 8; ++i) {
+          for (let xx = x, yy = y; xx != CONST_X[i] && yy != CONST_Y[i]; xx += ADD_X[i], yy += ADD_Y[i]) {
+              if (field[yy][xx] == turn) {
+                  let breakFlag = false;
+                  for (var xxx = x, yyy = y; (xxx != xx || ADD_X[i] == 0) && (yyy != yy || ADD_Y[i] == 0); xxx += ADD_X[i], yyy += ADD_Y[i]) {
+                      if (field[yyy][xxx] == -1) {//コマを置いてないマスがある場合、ループを抜ける
+                          breakFlag = true;
+                          break;
+                      }
+                  }
+                  if (breakFlag) {
+                      break;
+                  }
+
+                  for (var xxx = x, yyy = y; (xxx != xx || ADD_X[i] == 0) && (yyy != yy || ADD_Y[i] == 0); xxx += ADD_X[i], yyy += ADD_Y[i]) {
+                      field[yyy][xxx] = turn;
+                      if (field[yyy + ADD_Y[i]][xxx + ADD_X[i]] == turn) {//同じ色のコマが途中にあった場合、ループを抜ける
+                          break;
+                      }
+                  }
+              }
+          }
+      }
+
+      let afterPoint = 0;//コマを置いた後の
+      for (let x = 0; x < 8; ++x) {
+          for (let y = 0; y < 8; ++y) {
+              if (field[y][x] == turn) {
+                  afterPoint += 1;
+              }
+          }
+      }
+      console.log(beforePoint + "@@" + afterPoint);
+      if (beforePoint > 0 && beforePoint + 1 == afterPoint && count >= 2) {
+          field[y][x] = -1;
+          return;
+      }
+
+      
+      let childNum = 0;
+      for (const p of players) {
+        let point = 0;
+        for (let x = 0; x < 8; ++x) {
+          for (let y = 0; y < 8; ++y) {
+              if (field[y][x] == p) {
+                  point += 1;
+              }
+          }
+        }
+        panel.children[childNum + 1].innerHTML = "<span style='color:" + colorArray[p] + "'>プレイヤー" + p + "</span>点数：" + point;
+        ++childNum;
+      }
+      ++count;
+    
+      for (var v = 0; v < nameArray.length + 3; ++v) {
+        if (v == turn) {
+          ctx[0].fillStyle = colorArray[myName % 12];
+        }
+      }
+      ctx[0].beginPath();
+      ctx[0].arc((x+1) * 79 - 36, (y+1) * 79 - 36,CELL_HALF_SIZE,0,Math.PI*2,true);
+      ctx[0].fill();
+    
+      var array = {
+          'x': x,
+          'y': y,
+          'turn': turn_server,//turn,
+          'myName': myName,
+          'fieldNumber': fieldNumber
+        };
+
+      socketio.emit("put",{value: array});
+
+    };
+
+    ///////////////////////
+    // ゲームをスタートする //
+    ///////////////////////
+    function startGame() {
+      panel.innerHTML = "";
+      startGameFlag = true;
+      socketio.emit("startGame", fieldNumber);
+    }
+
+    //////////////////
+    // 人数を決定する //
+    //////////////////
+    function decidePlayerNumber() {
+      const num = document.getElementById("decidePlayerNumber");
+
+      panel.innerHTML = "";
+      const span = document.createElement("span");
+      span.style.fontSize = 64 + "px";
+      span.innerText = "対戦相手をお待ち下さい";
+      panel.appendChild(span);
+
+
+      // const button = document.createElement("button");
+      // button.onclick = startGame;
+      // button.innerText = "ゲーム開始";
+      // button.style.fontSize = 32 + "px";
+      // panel.appendChild(button);
+    }
+
+    //////////////////
+    // テーブルを作る //
+    //////////////////
+    function newTable() {
+      panel.innerHTML = "";
+      const select = document.createElement("select");
+      select.id = "decidePlayerNumber";
+      select.style.fontSize = 64 + "px";
+      for (let l = 2; l < 7; ++l) {
+        const option = new Option( l + "人", l, true);
+        select.options.add(option);
+      }
+      const span = document.createElement("span");
+      span.style.fontSize = 64 + "px";
+      span.innerText = "プレイヤー人数";
+
+      const button = document.createElement("button");
+      button.onclick = decidePlayerNumber;
+      button.innerText = "決定";
+      button.style.fontSize = 64 + "px";
+
+      panel.appendChild(span);
+      panel.appendChild(select);
+      panel.appendChild(button);
+
+      const data = {
+//        fieldNumber: 0,
+        fieldOwner: myName
+      };
+      socketio.emit("fieldOwner", data);
+    }
+
+    //////////////////
+    // テーブルに参加 //
+    //////////////////
+
+    var joinArray = [];
+
+    for (let l = 0; l < 100; ++l) {
+      var join = function() {
+        panel.innerHTML = "";
+        const span = document.createElement("span");
+        span.style.fontSize = 64 + "px";
+        span.innerText = "お待ち下さい";
+        panel.appendChild(span);
+        fieldNumber = l;
+        const data = {
+          fieldNumber: l,
+          myName: myName
+        };
+        socketio.emit("join", data);
+      }
+      joinArray.push(join);
+    }
+    const panel = document.getElementById("panel");
+
+
+    //////////////////
+    // オセロ盤を表示 //
+    //////////////////
+    window.onload = function() {
+      const button = document.createElement("button");
+      button.style.fontSize = 64 + "px";
+      button.innerText = "テーブルを作る";
+      button.onclick = newTable;
+      panel.appendChild(button);
+
+      //描画コンテキストの取得
+      for (var v = 0; v < 1; ++v) {
+
+        var canvas = document.getElementById('gamefield' + v);
+        if (!canvas.getContext) {return;}
+
+        ctx.push(canvas.getContext('2d'));
+
+        ctx[v].fillStyle = 'rgb(00,128,00)';
+        ctx[v].fillRect(0,0,FIELD_SIZE,FIELD_SIZE);
+
+        //色を指定する
+        ctx[v].strokeStyle = 'rgb(00,00,00)';
+        ctx[v].lineWidth = 5;
+
+        for (var x = 0; x < 9; ++x) {
+          ctx[v].beginPath();
+          ctx[v].moveTo(4 + x * CELL_SIZE, 0);
+          ctx[v].lineTo(4 + x * CELL_SIZE, FIELD_SIZE);
+          ctx[v].closePath();
+          ctx[v].stroke();
+        }
+        for (var y = 0; y < 9; ++y) {
+          ctx[v].beginPath();
+          ctx[v].moveTo(0,          4 + y * CELL_SIZE);
+          ctx[v].lineTo(FIELD_SIZE, 4 + y * CELL_SIZE);
+          ctx[v].closePath();
+          ctx[v].stroke();
+        }
+      }
+      for (let y = 0; y < 8; ++y) {
+          field[y] = [];
+          for (let x = 0; x < 8; ++x) {
+              field[y].push(-1);
+          }
+      }
+
+    };
+  </script>
