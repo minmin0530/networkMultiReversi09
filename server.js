@@ -114,7 +114,8 @@ io.sockets.on("connection", function (socket) {
         };
 
         // 全員にコマを置いた処理を送信
-        io.sockets.to(data.value.fieldNumber).emit("put", {value:d});
+        io.sockets.to(room[data.value.fieldNumber].fieldOwner).emit("put", {value:d});
+        // io.sockets.to(data.value.fieldNumber).emit("put", {value:d});
     });
 
     // テーブルのオーナー作成者を決める

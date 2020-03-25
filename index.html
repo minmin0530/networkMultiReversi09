@@ -3,7 +3,7 @@
   <meta charset="UTF-8">
   <title>リバーシ</title>
 </head>
-<body>
+<body style="background: #dddddd;">
   <canvas id="gamefield0" width="640" height="640" style="position: absolute; left:0px; top:0px;"></canvas>
   <div id="panel"  style="position: absolute; left:640px; top:0px;"></div><br>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js"></script>
@@ -134,13 +134,25 @@
         panel.innerHTML = "";
         const span = document.createElement("span");
         span.style.fontSize = 32 + "px";
-        span.innerText = "ゲーム開始！";
+        span.innerHTML = "ゲーム開始！";
+
+        let i = 0;
+        for (const p of players) {
+          if (p == myName) {
+            span.innerHTML += "<span style='color:" + colorArray[i] + "'>あなたの色です●</span>";
+          }
+          ++i;          
+        }
+
+
         panel.appendChild(span);
+        let childNum = 0;
         for (const p of players) {
           const playerDiv = document.createElement("div");
           playerDiv.style.fontSize = 32 + "px";
-          playerDiv.innerHTML = "<span style='color:" + colorArray[p] + "'>プレイヤー" + p + "</span>点数：";
+          playerDiv.innerHTML = "<span style='color:" + colorArray[childNum] + "'>プレイヤー" + childNum + "</span>点数：";
           panel.appendChild(playerDiv);
+          childNum += 1;
         }
 
       }
@@ -149,6 +161,7 @@
     // 誰かがコマを置いた処理の受け取り //
     /////////////////////////////////
     socketio.on("put", function (data) {
+      console.log("put" + data);
       turn_server = data.value.turn;
 
       if (!(data.value.y == -1 && data.value.x == -1)) {
@@ -172,16 +185,18 @@
 
       let childNum = 0;
       for (const p of players) {
+        console.log("p" + p);
+        console.log("field" + field);
         let point = 0;
         for (let x = 0; x < 8; ++x) {
           for (let y = 0; y < 8; ++y) {
-              if (field[y][x] == p) {
+              if (field[y][x] == childNum) {
                   point += 1;
               }
           }
         }
-        panel.children[childNum + 1].innerHTML = "<span style='color:" + colorArray[p] + "'>プレイヤー" + p + "</span>点数：" + point;
-        if ( p == turn_server) {panel.children[childNum + 1].innerHTML += " <- 順番です";}
+        panel.children[childNum + 1].innerHTML = "<span style='color:" + colorArray[childNum] + "'>プレイヤー" + childNum + "</span>点数：" + point;
+        if ( childNum == turn_server) {panel.children[childNum + 1].innerHTML += " <- 順番です";}
         ++childNum;
       }
 
@@ -286,13 +301,13 @@
           let point = 0;
           for (let x = 0; x < 8; ++x) {
             for (let y = 0; y < 8; ++y) {
-                if (field[y][x] == p) {
+                if (field[y][x] == childNum) {
                     point += 1;
                 }
             }
           }
-          panel.children[childNum + 1].innerHTML = "<span style='color:" + colorArray[p] + "'>プレイヤー" + p + "</span>点数：" + point;
-          if ( p != turn_server) {panel.children[childNum + 1].innerHTML += " <- パスです";}
+          panel.children[childNum + 1].innerHTML = "<span style='color:" + colorArray[childNum] + "'>プレイヤー" + childNum + "</span>点数：" + point;
+          if ( childNum != turn_server) {panel.children[childNum + 1].innerHTML += " <- パスです";}
           else {panel.children[childNum + 1].innerHTML += " <- 順番です";}
           ++childNum;
         }
