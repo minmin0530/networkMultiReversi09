@@ -14,7 +14,7 @@ class Room {
   constructor() {
     this.roomName = null;
     this.players = [];
-    this.field = [];
+    this.field = []; // 使わないかも？
     this.turn = 0; // 使わないかも？
     this.fieldOwner = null; // roomNameと同じかも？
     this.state = STATE_NULL; // tableNumberArrayのこと
@@ -28,8 +28,6 @@ var socketID = [];
 var field = [];
 var turn = [];
 var fieldOwner = [];
-var players = [];
-var fieldNumberArray = [];
 //初期化（オセロ盤と順番の初期化）
 for (var v = 0; v < 100; ++v) {
     var arrayY = [];
@@ -69,6 +67,8 @@ io.sockets.on("connection", function (socket) {
 
     // 誰かがコマを置いた処理をクライアントから受け取り
     socket.on("put", function (data) {
+
+      // パスじゃない場合
         if (!(data.value.y == -1 && data.value.x == -1)) {
 
         
@@ -100,11 +100,12 @@ io.sockets.on("connection", function (socket) {
                 }
             }
           }
-        } else {
+        } else { // パスだった場合
           console.log("pass" + data.value.turn);
-        }       
-        data.value.turn += 1;
-        data.value.turn = data.value.turn % room[data.value.fieldNumber].players.length;//players.length;
+        }
+
+        data.value.turn += 1; //順番を１つ進める
+        data.value.turn = data.value.turn % room[data.value.fieldNumber].players.length;
         var d = {
           'x':data.value.x,
           'y':data.value.y,
@@ -130,31 +131,16 @@ io.sockets.on("connection", function (socket) {
         ++i;
       }
 
-      // for (const fn of fieldNumberArray) {
-      //   if (fn == 3) {
-      //     fieldNumberArray[i] = 1;
-      //     fieldOwner[i] = data.fieldOwner;
-      //     existFlag = false;
-      //     break;
-      //   }
-      //   ++i;
-      // }
       const tempRoom = new Room();
       if (existFlag) {
         room.push( tempRoom );
         tempRoom.state = STATE_WAIT;
         tempRoom.fieldOwner = data.fieldOwner;
         tempRoom.players.push(data.fieldOwner);
-        // fieldNumberArray.push(1);
-        // fieldOwner[fieldNumberArray.length - 1] = data.fieldOwner;
       }
-      // players.push(data.fieldOwner);
       if (existFlag) {
         socket.join(tempRoom.fieldOwner);
         io.sockets.connected[socketID[ tempRoom.fieldOwner ]].emit("currentTable", room.length - 1);      
-
-        // socket.join(fieldNumberArray.length - 1);
-        // io.sockets.connected[socketID[ fieldOwner[fieldNumberArray.length - 1] ]].emit("currentTable", fieldNumberArray.length - 1);      
       } else {
         socket.join(i);
         io.sockets.connected[socketID[ fieldOwner[i] ]].emit("currentTable", i);
@@ -185,10 +171,6 @@ io.sockets.on("connection", function (socket) {
       if (room[data].state == STATE_WAIT) {
         room[data].state = STATE_ACTIVE;
       }
-      // if (fieldNumberArray[data] == 1) {
-      //   fieldNumberArray[data] = 2;
-      // }
-
       io.sockets.emit("startGame", {data:data, players: room[data].players});
     });
 
@@ -198,9 +180,6 @@ io.sockets.on("connection", function (socket) {
         delete userHash[socket.id];
       }
     });
-
-
-
 });
 
 //アクセスを待ち受け。
