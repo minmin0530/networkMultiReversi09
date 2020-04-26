@@ -14,6 +14,10 @@ class Room {
   constructor() {
     this.roomName = null;
     this.players = [];
+    this.wachers = [];
+    this.disconnectPlayers = [];
+    this.disconnectFlag = false;
+    this.passCount = 0;
     this.field = []; // 使わないかも？
     this.turn = 0; // 使わないかも？
     this.fieldOwner = null; // roomNameと同じかも？
@@ -67,9 +71,11 @@ io.sockets.on("connection", function (socket) {
 
     // 誰かがコマを置いた処理をクライアントから受け取り
     socket.on("put", function (data) {
-
+      room[data.value.fieldNumber].turn = data.value.turn;
+      room[data.value.fieldNumber].disconnectFlag = false;
       // パスじゃない場合
         if (!(data.value.y == -1 && data.value.x == -1)) {
+          room[data.value.fieldNumber].passCount = 0;
 
         
           field[data.value.fieldNumber][data.value.y][data.value.x] = data.value.turn;
@@ -101,9 +107,55 @@ io.sockets.on("connection", function (socket) {
             }
           }
         } else { // パスだった場合
+          room[data.value.fieldNumber].passCount += 1;
           console.log("pass" + data.value.turn);
         }
 
+        room[data.value.fieldNumber].field = field[data.value.fieldNumber];
+
+        let point = 0;
+        for (let y = 0; y < 8; ++y) {
+          for (let x = 0; x < 8; ++x) {
+            if (field[data.value.fieldNumber][y][x] == -1) {
+              point += 1;
+            }
+          }
+        }
+        let finish = false;
+        if (point == 0) {
+          finish = true;
+        }
+        if (room[data.value.fieldNumber].passCount >= room[data.value.fieldNumber].players.length) {
+          finish = true;
+        }
+
+        let t = data.value.turn + 1;
+        for (const d2 of room[data.value.fieldNumber].disconnectPlayers) {
+          for (const d of room[data.value.fieldNumber].disconnectPlayers) {
+            console.log("discon" + d);
+            t = t  % room[data.value.fieldNumber].players.length;
+            if (d == room[data.value.fieldNumber].players[t]) {
+              console.log("discon pass");
+              t += 1;
+              t = t  % room[data.value.fieldNumber].players.length;
+              break;
+            }
+          }
+        }
+        if (room[data.value.fieldNumber].disconnectPlayers.length > 0) {
+          room[data.value.fieldNumber].turn = t - 1;
+          var dd = {
+            'x':data.value.x,
+            'y':data.value.y,
+            'turn':t,
+            'field':field[data.value.fieldNumber],
+            'fieldNumber':data.value.fieldNumber,
+            'finish':finish
+          };
+          io.sockets.to(room[data.value.fieldNumber].fieldOwner).emit("put", {value:dd});
+          return;    
+        }
+        
         data.value.turn += 1; //順番を１つ進める
         data.value.turn = data.value.turn % room[data.value.fieldNumber].players.length;
         var d = {
@@ -111,7 +163,8 @@ io.sockets.on("connection", function (socket) {
           'y':data.value.y,
           'turn':data.value.turn,
           'field':field[data.value.fieldNumber],
-          'fieldNumber':data.value.fieldNumber
+          'fieldNumber':data.value.fieldNumber,
+          'finish':finish
         };
 
         // 全員にコマを置いた処理を送信
@@ -163,7 +216,17 @@ io.sockets.on("connection", function (socket) {
         number: room[data.fieldNumber].players.length
       };
       socket.join(room[data.fieldNumber].fieldOwner);
-      io.sockets.connected[socketID[ room[data.fieldNumber].fieldOwner ]].emit("join", joinData);
+      if (io.sockets.connected[socketID[ room[data.fieldNumber].fieldOwner ]] != null) {
+        io.sockets.connected[socketID[ room[data.fieldNumber].fieldOwner ]].emit("join", joinData);
+      } else {
+        io.sockets.connected[socketID[ data.myName ]].emit("deleteTable");
+      }
+    });
+
+    socket.on("watching", function(data) {
+      console.log(data.fieldNumber);
+      socket.join(room[data.fieldNumber].fieldOwner);
+      io.sockets.connected[socketID[ data.myName ]].emit("watching", room[data.fieldNumber]);
     });
 
     // ゲーム開始
@@ -174,11 +237,59 @@ io.sockets.on("connection", function (socket) {
       io.sockets.emit("startGame", {data:data, players: room[data].players});
     });
 
+    // ゲーム終了
+    socket.on("finishGame", function(data){
+      var getNameData = {
+        'name': data,
+        'room': room, // fieldNumberArrayの代わり
+  
+        // 'fieldNumberArray': fieldNumberArray,
+  
+        'field': field
+      };
+      io.sockets.connected[socket.id].emit("getName", {value: getNameData});
+  
+    });
+
     // 離脱
     socket.on("disconnect", function () {
-      if (userHash[socket.id]) {
+        let fieldNumber = 0;
+        for (const r of room) {
+          for (const p of r.players) {
+            if (p == userHash[socket.id]) {
+              if (r.state == STATE_WAIT && p == r.fieldOwner) {
+                r.state = STATE_NULL;
+                io.sockets.to(r.fieldOwner).emit("deleteTable");
+              }
+
+              r.disconnectPlayers.push(p);
+              io.sockets.to(r.fieldOwner).emit("disconnect", p);
+
+              if (r.disconnectFlag == false) {
+                r.turn += 1;
+                r.turn = r.turn % r.players.length;
+              }
+              r.disconnectFlag = true;
+
+              if (r.players[r.turn] == p) {
+                r.turn += 1; //順番を１つ進める
+                r.turn = r.turn % r.players.length;
+                var d = {
+                  'x':-1,
+                  'y':-1,
+                  'turn':r.turn,
+                  'field':r.field,
+                  'fieldNumber':fieldNumber,
+                  'finish':false
+                };
+                // 全員にコマを置いた処理を送信
+                io.sockets.to(r.fieldOwner).emit("put", {value:d});
+              }
+            }
+          }
+          fieldNumber += 1;
+        }
         delete userHash[socket.id];
-      }
     });
 });
 
