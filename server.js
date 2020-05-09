@@ -6,7 +6,7 @@ var io = require('socket.io')(http);
 app.get('/', function(req, res){
   res.sendFile(__dirname + '/index.html');
 });
-const MAX = 4;
+const MAX = 8;
 const STATE_NULL = 0;
 const STATE_WAIT = 1;
 const STATE_ACTIVE = 2;
