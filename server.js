@@ -6,7 +6,7 @@ var io = require('socket.io')(http);
 app.get('/', function(req, res){
   res.sendFile(__dirname + '/index.html');
 });
-
+const MAX = 4;
 const STATE_NULL = 0;
 const STATE_WAIT = 1;
 const STATE_ACTIVE = 2;
@@ -35,9 +35,9 @@ var fieldOwner = [];
 //初期化（オセロ盤と順番の初期化）
 for (var v = 0; v < 100; ++v) {
     var arrayY = [];
-    for (var y = 0; y < 8; ++y) {
+    for (var y = 0; y < MAX; ++y) {
         var arrayX = [];
-        for (var x = 0; x < 8; ++x) {
+        for (var x = 0; x < MAX; ++x) {
             arrayX.push(-1);
         }
         arrayY.push(arrayX);
@@ -46,8 +46,8 @@ for (var v = 0; v < 100; ++v) {
     turn.push(0);
 }
 
-const CONST_X = [ 8, -1,  8, -1,  8, -1,  8, -1];
-const CONST_Y = [ 8,  8, -1, -1,  8, -1,  8, -1];
+const CONST_X = [ MAX, -1,  MAX, -1,  MAX, -1,  MAX, -1];
+const CONST_Y = [ MAX,  MAX, -1, -1,  MAX, -1,  MAX, -1];
 const ADD_X   = [ 1, -1,  1, -1,  1, -1,  0,  0];
 const ADD_Y   = [ 1,  1, -1, -1,  0,  0,  1, -1];
 
@@ -108,14 +108,25 @@ io.sockets.on("connection", function (socket) {
           }
         } else { // パスだった場合
           room[data.value.fieldNumber].passCount += 1;
+          for (let i = 0; i < room[data.value.fieldNumber].players.length; ++i) {
+            if (data.value.passTurn[data.value.turn]) {
+              data.value.turn += 1;
+              data.value.turn = data.value.turn % room[data.value.fieldNumber].players.length;
+            }
+          }
+          data.value.turn -= 1;
+          if (data.value.turn < 0) {
+            data.value.turn = room[data.value.fieldNumber].players.length - 1;
+          }
+          data.value.turn = data.value.turn % room[data.value.fieldNumber].players.length;
           console.log("pass" + data.value.turn);
         }
 
         room[data.value.fieldNumber].field = field[data.value.fieldNumber];
 
         let point = 0;
-        for (let y = 0; y < 8; ++y) {
-          for (let x = 0; x < 8; ++x) {
+        for (let y = 0; y < MAX; ++y) {
+          for (let x = 0; x < MAX; ++x) {
             if (field[data.value.fieldNumber][y][x] == -1) {
               point += 1;
             }
@@ -147,6 +158,7 @@ io.sockets.on("connection", function (socket) {
           var dd = {
             'x':data.value.x,
             'y':data.value.y,
+            'passTurn':data.value.passTurn,
             'turn':t,
             'field':field[data.value.fieldNumber],
             'fieldNumber':data.value.fieldNumber,
@@ -161,6 +173,7 @@ io.sockets.on("connection", function (socket) {
         var d = {
           'x':data.value.x,
           'y':data.value.y,
+          'passTurn':data.value.passTurn,
           'turn':data.value.turn,
           'field':field[data.value.fieldNumber],
           'fieldNumber':data.value.fieldNumber,

@@ -29,6 +29,7 @@
         'rgb(127,127,00)',
         
     ];
+    const MAX = 4;
     var FIELD_SIZE = 640;
     var CELL_SIZE = 79;
     var CELL_HALF_SIZE = 34;
@@ -42,6 +43,7 @@
     var startGameFlag = false;
     var tableArray = [];
     var players = [];
+    var passTurn = [];
 
     var passFlag = true;
 
@@ -102,8 +104,8 @@
     // 観戦テーブルの受け取り //
     ////////////////////////
     socketio.on("watching", function(room) {
-      for (var y = 0; y < 8; ++y) {
-        for (var x = 0; x < 8; ++x) {
+      for (var y = 0; y < MAX; ++y) {
+        for (var x = 0; x < MAX; ++x) {
           if (room.field[y][x] != -1) {
             for (var v = 0; v < 8; ++v) {
               if (v == room.field[y][x]) {
@@ -171,6 +173,7 @@
 
         let i = 0;
         for (const p of players) {
+          passTurn.push(false);
           if (p == myName) {
             span.innerHTML += "<span style='color:" + colorArray[i] + "'>あなたの色です●</span>";
             turn = i;
@@ -201,8 +204,8 @@
           console.log("p" + p);
           console.log("field" + field);
           let point = 0;
-          for (let x = 0; x < 8; ++x) {
-            for (let y = 0; y < 8; ++y) {
+          for (let x = 0; x < MAX; ++x) {
+            for (let y = 0; y < MAX; ++y) {
                 if (field[y][x] == childNum) {
                     point += 1;
                 }
@@ -232,16 +235,16 @@
       passFlag = true;
         // パスの計算をするため現在の盤をコピー
         const fieldT = [];
-        for (let y = 0; y < 8; ++y) {
+        for (let y = 0; y < MAX; ++y) {
             fieldT[y] = [];
-            for (let x = 0; x < 8; ++x) {
+            for (let x = 0; x < MAX; ++x) {
                 fieldT[y].push(field[y][x]);
             }
         }
 
         let beforePoint = 0;//置く前のコマの数を計算
-        for (let xx = 0; xx < 8; ++xx) {
-            for (let yy = 0; yy < 8; ++yy) {
+        for (let xx = 0; xx < MAX; ++xx) {
+            for (let yy = 0; yy < MAX; ++yy) {
                 if (field[yy][xx] == turn) {
                     beforePoint += 1;
                 }
@@ -249,8 +252,8 @@
         }
 
         // コマをひっくり返す処理を空いているマス全てで試す
-        for (let x = 0; x < 8; ++x) {
-          for (let y = 0; y < 8; ++y) {
+        for (let x = 0; x < MAX; ++x) {
+          for (let y = 0; y < MAX; ++y) {
             if (fieldT[y][x] == -1) {
               fieldT[y][x] = turn;
               for (let i = 0; i < 8; ++i) {
@@ -278,8 +281,8 @@
               }
 
               let afterPoint = 0;//コマを置いた後の得点
-              for (let xx = 0; xx < 8; ++xx) {
-                  for (let yy = 0; yy < 8; ++yy) {
+              for (let xx = 0; xx < MAX; ++xx) {
+                  for (let yy = 0; yy < MAX; ++yy) {
                       if (fieldT[yy][xx] == turn) {
                           afterPoint += 1;
                       }
@@ -311,12 +314,40 @@
       finishFlag = data.value.finish;
       // turn = turn_server;
 
+
+
+      // let childNum = 0;
+      // let disconnectFlag = false;
+      // let passFlag2 = false;
+      // for (const p of players) {
+      //   let point = 0;
+      //   for (let x = 0; x < MAX; ++x) {
+      //     for (let y = 0; y < MAX; ++y) {
+      //         if (field[y][x] == childNum) {
+      //             point += 1;
+      //         }
+      //     }
+      //   }
+      //   panel.children[childNum + 1].innerHTML = "<span style='color:" + colorArray[childNum] + "'>プレイヤー" + childNum + "</span>点数：" + point;
+      //   if ( passTurn[childNum] ) {panel.children[childNum + 1].innerHTML += " <- パスです"; passFlag2 = true; }
+      //   // else {panel.children[childNum + 1].innerHTML += " <- 順番です";}
+      //   for (const d of disconnectPlayer) {
+      //     if (p == d) {
+      //       panel.children[childNum + 1].innerHTML += " <- 離脱しました";
+      //       disconnectFlag = true;
+      //     }
+      //   }
+      //   ++childNum;
+      // }
+
+
+
       // パスじゃない場合
       if (!(data.value.y == -1 && data.value.x == -1)) {
 
         // サーバから受け取った箇所にコマを置く
-        for (var y = 0; y < 8; ++y) {
-          for (var x = 0; x < 8; ++x) {
+        for (var y = 0; y < MAX; ++y) {
+          for (var x = 0; x < MAX; ++x) {
             if (data.value.field[y][x] != -1) {
               console.log("field" + data.value.field[y][x]);
               for (var v = 0; v < 8; ++v) {
@@ -332,6 +363,7 @@
           }
         }
 
+        console.log("turn_server"+turn_server);
         // 順番と得点の表示
         let childNum = 0;
         let disconnectFlag = false;
@@ -339,15 +371,16 @@
           console.log("p" + p);
           console.log("field" + field);
           let point = 0;
-          for (let x = 0; x < 8; ++x) {
-            for (let y = 0; y < 8; ++y) {
+          for (let x = 0; x < MAX; ++x) {
+            for (let y = 0; y < MAX; ++y) {
                 if (field[y][x] == childNum) {
                     point += 1;
                 }
             }
           }
           panel.children[childNum + 1].innerHTML = "<span style='color:" + colorArray[childNum] + "'>プレイヤー" + childNum + "</span>点数：" + point;
-          if ( childNum == turn_server) {panel.children[childNum + 1].innerHTML += " <- 順番です";}
+          if ( childNum != turn_server) {panel.children[childNum + 1].innerHTML += " <- パスです";}
+          else {panel.children[childNum + 1].innerHTML += " <- 順番です";}
           for (const d of disconnectPlayer) {
             if (p == d) {
               panel.children[childNum + 1].innerHTML += " <- 離脱しました";
@@ -374,14 +407,16 @@
         } else {
           // パスの場合
           if (passFlag == true) {
-            if ( players.length == 2) {
-              turn_server += 1;
-              turn_server = turn_server % 2;
-            }
-            console.log("##### pass #####");
+            // if ( players.length == 2) {
+//              turn_server += 1;
+              turn_server = turn_server % players.length;
+              passTurn[turn_server] = true;
+            // }
+            console.log("1##### pass #####");
             var array = {
               'x': -1,
               'y': -1,
+              'passTurn': passTurn,
               'turn': turn_server,
               'myName': myName,
               'fieldNumber': fieldNumber
@@ -394,6 +429,9 @@
         }
       // パスの場合
       } else {
+        // if (passFlag) {
+        //   return;
+        // }
         searchPass();
 
         if (data.value.finish) {
@@ -404,39 +442,40 @@
         } else {
 
           // パスの場合
-          if (passFlag == true) {
-            if ( players.length == 2) {
-              turn_server += 1;
-              turn_server = turn_server % 2;
-            }
+          // if (passFlag == true) {
+          //   if ( players.length == 2) {
+          //     turn_server += 1;
+          //     turn_server = turn_server % 2;
+          //   }
 
-            console.log("##### pass #####");
-            var array = {
-              'x': -1,
-              'y': -1,
-              'turn': turn_server,
-              'myName': myName,
-              'fieldNumber': fieldNumber
-            };
-            console.log(array);
+          //   console.log("##### pass #####");
+          //   var array = {
+          //     'x': -1,
+          //     'y': -1,
+          //     'turn': turn_server,
+          //     'myName': myName,
+          //     'fieldNumber': fieldNumber
+          //   };
+          //   console.log(array);
 
-            socketio.emit("put",{value: array});
+          //   socketio.emit("put",{value: array});
 
-          } else {
+          // } else {
 
             let childNum = 0;
             let disconnectFlag = false;
+            let passFlag2 = false;
             for (const p of players) {
               let point = 0;
-              for (let x = 0; x < 8; ++x) {
-                for (let y = 0; y < 8; ++y) {
+              for (let x = 0; x < MAX; ++x) {
+                for (let y = 0; y < MAX; ++y) {
                     if (field[y][x] == childNum) {
                         point += 1;
                     }
                 }
               }
               panel.children[childNum + 1].innerHTML = "<span style='color:" + colorArray[childNum] + "'>プレイヤー" + childNum + "</span>点数：" + point;
-              if ( childNum != turn_server) {panel.children[childNum + 1].innerHTML += " <- パスです";}
+              if ( childNum != turn_server ) {panel.children[childNum + 1].innerHTML += " <- パスです"; passFlag2 = true; }
               else {panel.children[childNum + 1].innerHTML += " <- 順番です";}
               for (const d of disconnectPlayer) {
                 if (p == d) {
@@ -446,7 +485,29 @@
               }
               ++childNum;
             }
-          }
+
+            if (passFlag && turn == turn_server) {
+              passTurn[turn_server] = true;
+              // if ( players.length == 2) {
+//                turn_server += 2;
+                turn_server = turn_server % players.length;
+              // }
+
+              console.log("2##### pass #####");
+              var array = {
+                'x': -1,
+                'y': -1,
+                'passTurn': passTurn,
+                'turn': turn_server,
+                'myName': myName,
+                'fieldNumber': fieldNumber
+              };
+              console.log(array);
+
+              socketio.emit("put",{value: array});
+            } 
+
+//          }
         }
       }
     });
@@ -461,8 +522,8 @@
 
 
     const field = [];
-    const CONST_X = [ 8, -1,  8, -1,  8, -1,  8, -1];
-    const CONST_Y = [ 8,  8, -1, -1,  8, -1,  8, -1];
+    const CONST_X = [ MAX, -1,  MAX, -1,  MAX, -1,  MAX, -1];
+    const CONST_Y = [ MAX,  MAX, -1, -1,  MAX, -1,  MAX, -1];
     const ADD_X   = [ 1, -1,  1, -1,  1, -1,  0,  0];
     const ADD_Y   = [ 1,  1, -1, -1,  0,  0,  1, -1];
 
@@ -510,8 +571,8 @@
 
 
       let firstFlag = true;
-      for (let fx = 0; fx < 8; ++fx) {
-        for (let fy = 0; fy < 8; ++fy) {
+      for (let fx = 0; fx < MAX; ++fx) {
+        for (let fy = 0; fy < MAX; ++fy) {
           if(field[fy][fx] != -1) {
             firstFlag = false;
           }
@@ -519,14 +580,14 @@
       }
       //どこにも隣あってない場合
       if (
-        ( (x < 7 && field[y][x + 1] != -1) ) ||
+        ( (x < (MAX - 1) && field[y][x + 1] != -1) ) ||
         ( (x > 0 && field[y][x - 1] != -1) ) ||
-        ( (y < 7 && field[y + 1][x] != -1) ) ||
+        ( (y < (MAX - 1) && field[y + 1][x] != -1) ) ||
         ( (y > 0 && field[y - 1][x] != -1) ) ||
-        ( (x < 7 && y < 7 && field[y + 1][x + 1] != -1) ) ||
+        ( (x < (MAX - 1) && y < (MAX - 1) && field[y + 1][x + 1] != -1) ) ||
         ( (x > 0 && y > 0 && field[y - 1][x - 1] != -1) ) ||
-        ( (x < 7 && y > 0 && field[y - 1][x + 1] != -1) ) ||
-        ( (x > 0 && y < 7 && field[y + 1][x - 1] != -1) )
+        ( (x < (MAX - 1) && y > 0 && field[y - 1][x + 1] != -1) ) ||
+        ( (x > 0 && y < (MAX - 1) && field[y + 1][x - 1] != -1) )
       ) {
       } else {
         if (firstFlag == false) {
@@ -535,8 +596,8 @@
       }
 
       let beforePoint = 0;//置く前のコマの数を計算
-      for (let x = 0; x < 8; ++x) {
-          for (let y = 0; y < 8; ++y) {
+      for (let x = 0; x < MAX; ++x) {
+          for (let y = 0; y < MAX; ++y) {
               if (field[y][x] == turn) {
                   beforePoint += 1;
               }
@@ -571,8 +632,8 @@
       }
 
       let afterPoint = 0;//コマを置いた後の
-      for (let x = 0; x < 8; ++x) {
-          for (let y = 0; y < 8; ++y) {
+      for (let x = 0; x < MAX; ++x) {
+          for (let y = 0; y < MAX; ++y) {
               if (field[y][x] == turn) {
                   afterPoint += 1;
               }
@@ -589,8 +650,8 @@
       // let disconnectFlag = false;
       for (const p of players) {
         let point = 0;
-        for (let x = 0; x < 8; ++x) {
-          for (let y = 0; y < 8; ++y) {
+        for (let x = 0; x < MAX; ++x) {
+          for (let y = 0; y < MAX; ++y) {
               if (field[y][x] == p) {
                   point += 1;
               }
@@ -610,10 +671,13 @@
       ctx[0].beginPath();
       ctx[0].arc((x+1) * 79 - 36, (y+1) * 79 - 36,CELL_HALF_SIZE,0,Math.PI*2,true);
       ctx[0].fill();
+
+      passTurn[turn_server] = false;
     
       var array = {
           'x': x,
           'y': y,
+          'passTurn': passTurn,
           'turn': turn_server,//turn,
           'myName': myName,
           'fieldNumber': fieldNumber
@@ -817,14 +881,14 @@
         ctx[v].strokeStyle = 'rgb(00,00,00)';
         ctx[v].lineWidth = 5;
 
-        for (var x = 0; x < 9; ++x) {
+        for (var x = 0; x < MAX + 1; ++x) {
           ctx[v].beginPath();
           ctx[v].moveTo(4 + x * CELL_SIZE, 0);
           ctx[v].lineTo(4 + x * CELL_SIZE, FIELD_SIZE);
           ctx[v].closePath();
           ctx[v].stroke();
         }
-        for (var y = 0; y < 9; ++y) {
+        for (var y = 0; y < MAX + 1; ++y) {
           ctx[v].beginPath();
           ctx[v].moveTo(0,          4 + y * CELL_SIZE);
           ctx[v].lineTo(FIELD_SIZE, 4 + y * CELL_SIZE);
@@ -832,9 +896,9 @@
           ctx[v].stroke();
         }
       }
-      for (let y = 0; y < 8; ++y) {
+      for (let y = 0; y < MAX; ++y) {
         field[y] = [];
-        for (let x = 0; x < 8; ++x) {
+        for (let x = 0; x < MAX; ++x) {
             field[y].push(-1);
         }
       }
