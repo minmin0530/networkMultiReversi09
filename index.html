@@ -312,6 +312,8 @@
       turn_server = data.value.turn;
 
       finishFlag = data.value.finish;
+
+      tableArray = data.value.room;
       // turn = turn_server;
 
 
@@ -437,7 +439,7 @@
         if (data.value.finish) {
           const playerDiv = document.createElement("div");
           playerDiv.style.fontSize = 32 + "px";
-          playerDiv.innerHTML = "ゲーム終了";
+          playerDiv.innerHTML = "<button onclick='finishGame();'>ゲーム終了</button>";
           panel.appendChild(playerDiv);
         } else {
 
@@ -808,6 +810,15 @@
       deleteTableDiv.innerHTML = "テーブルが削除されました<button onclick='finishGame();'>ゲーム終了</button>";
       panel.appendChild(deleteTableDiv);
       panel.removeChild(span);
+
+      turn = -1;
+      turn_server = PLAYER_TURN;
+      count = 0;
+      startGameFlag = false;
+      tableArray = [];
+      players = [];
+      passTurn = [];
+      passFlag = true;
     });
 
 
@@ -858,6 +869,15 @@
         }
         ++i;
       }
+
+      turn = -1;
+      turn_server = PLAYER_TURN;
+      count = 0;
+      startGameFlag = false;
+      tableArray = [];
+      players = [];
+      passTurn = [];
+      passFlag = true;
 
       socketio.emit("finishGame", myName);
     };

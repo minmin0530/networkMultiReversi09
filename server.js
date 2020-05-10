@@ -135,9 +135,11 @@ io.sockets.on("connection", function (socket) {
         let finish = false;
         if (point == 0) {
           finish = true;
+          room[data.value.fieldNumber].state = STATE_NULL;
         }
         if (room[data.value.fieldNumber].passCount >= room[data.value.fieldNumber].players.length) {
           finish = true;
+          room[data.value.fieldNumber].state = STATE_NULL;
         }
 
         let t = data.value.turn + 1;
@@ -162,6 +164,7 @@ io.sockets.on("connection", function (socket) {
             'turn':t,
             'field':field[data.value.fieldNumber],
             'fieldNumber':data.value.fieldNumber,
+            'room':room,
             'finish':finish
           };
           io.sockets.to(room[data.value.fieldNumber].fieldOwner).emit("put", {value:dd});
@@ -177,6 +180,7 @@ io.sockets.on("connection", function (socket) {
           'turn':data.value.turn,
           'field':field[data.value.fieldNumber],
           'fieldNumber':data.value.fieldNumber,
+          'room':room,
           'finish':finish
         };
 
